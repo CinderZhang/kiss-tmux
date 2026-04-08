@@ -88,3 +88,95 @@ func TestRingBuffer64KB(t *testing.T) {
 		t.Errorf("len = %d, want 65536", len(got))
 	}
 }
+
+func TestManagerSpawnAndList(t *testing.T) {
+	var lastBroadcast []byte
+	mgr := NewManager(8, func(data []byte) {
+		lastBroadcast = data
+	})
+
+	id, err := mgr.Spawn("cmd.exe", "", "test-session", 80, 24)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id == "" {
+		t.Fatal("spawn returned empty ID")
+	}
+
+	sessions := mgr.List()
+	if len(sessions) != 1 {
+		t.Fatalf("list returned %d sessions, want 1", len(sessions))
+	}
+	if sessions[0].ID != id {
+		t.Errorf("id = %q, want %q", sessions[0].ID, id)
+	}
+	if sessions[0].Name != "test-session" {
+		t.Errorf("name = %q, want test-session", sessions[0].Name)
+	}
+	if !sessions[0].Running {
+		t.Error("session should be running")
+	}
+
+	if lastBroadcast == nil {
+		t.Error("no broadcast after spawn")
+	}
+
+	mgr.Kill(id)
+}
+
+func TestManagerKill(t *testing.T) {
+	mgr := NewManager(8, func(data []byte) {})
+
+	id, err := mgr.Spawn("cmd.exe", "", "kill-test", 80, 24)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mgr.Kill(id)
+
+	sessions := mgr.List()
+	if len(sessions) != 1 {
+		t.Fatalf("killed session should remain in list, got %d", len(sessions))
+	}
+	if sessions[0].Running {
+		t.Error("killed session should not be running")
+	}
+}
+
+func TestManagerRename(t *testing.T) {
+	mgr := NewManager(8, func(data []byte) {})
+
+	id, err := mgr.Spawn("cmd.exe", "", "old-name", 80, 24)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer mgr.Kill(id)
+
+	mgr.Rename(id, "new-name")
+
+	sessions := mgr.List()
+	if sessions[0].Name != "new-name" {
+		t.Errorf("name = %q, want new-name", sessions[0].Name)
+	}
+}
+
+func TestManagerMaxSessions(t *testing.T) {
+	mgr := NewManager(2, func(data []byte) {})
+
+	id1, err := mgr.Spawn("cmd.exe", "", "s1", 80, 24)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer mgr.Kill(id1)
+
+	id2, err := mgr.Spawn("cmd.exe", "", "s2", 80, 24)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer mgr.Kill(id2)
+
+	_, err = mgr.Spawn("cmd.exe", "", "s3", 80, 24)
+	if err == nil {
+		t.Error("expected error when exceeding max sessions")
+	}
+}
