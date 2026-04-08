@@ -210,6 +210,17 @@ function renderFocus() {
   var sidebar = document.getElementById('sidebar');
   sidebar.innerHTML = '';
 
+  // Grid button — back to grid view
+  var gridBtn = document.createElement('button');
+  gridBtn.className = 'sidebar-tab sidebar-action';
+  gridBtn.textContent = '\u2630'; // hamburger menu icon ☰
+  gridBtn.title = 'Grid view';
+  gridBtn.addEventListener('click', function() {
+    switchToGrid();
+  });
+  sidebar.appendChild(gridBtn);
+
+  // Session tabs
   sessions.forEach(function(s) {
     var tab = document.createElement('button');
     tab.className = 'sidebar-tab' + (s.id === activeSession ? ' active' : '');
@@ -234,6 +245,21 @@ function renderFocus() {
     sidebar.appendChild(tab);
   });
 
+  // Spacer pushes + button to bottom
+  var spacer = document.createElement('div');
+  spacer.style.flex = '1';
+  sidebar.appendChild(spacer);
+
+  // New session button
+  var newBtn = document.createElement('button');
+  newBtn.className = 'sidebar-tab sidebar-action';
+  newBtn.textContent = '+';
+  newBtn.title = 'New session';
+  newBtn.addEventListener('click', function() {
+    showNewSessionDialog();
+  });
+  sidebar.appendChild(newBtn);
+
   var focusDiv = document.getElementById('focus-terminal');
   focusDiv.innerHTML = '';
 
@@ -255,23 +281,6 @@ function switchToGrid() {
   render();
 }
 
-function toggleMode() {
-  if (mode === 'grid') {
-    if (sessions.length > 0) {
-      switchToFocus(activeSession || sessions[0].id);
-    }
-  } else {
-    switchToGrid();
-  }
-}
-
-function focusNextSession(direction) {
-  if (sessions.length === 0) return;
-  var idx = sessions.findIndex(function(s) { return s.id === activeSession; });
-  if (idx === -1) idx = 0;
-  idx = (idx + direction + sessions.length) % sessions.length;
-  switchToFocus(sessions[idx].id);
-}
 
 // New Session Dialog
 function showNewSessionDialog() {
@@ -340,48 +349,12 @@ function startRename(sessionId, nameEl) {
   input.addEventListener('blur', finish);
 }
 
-// Keyboard Shortcuts
+// Escape key — only for closing dialog (doesn't conflict with terminal)
 function setupKeyboard() {
   document.addEventListener('keydown', function(e) {
-    if (e.target.tagName === 'INPUT') return;
-
-    if (e.ctrlKey && e.key === 'g') {
-      e.preventDefault();
-      toggleMode();
-      return;
-    }
-
-    if (e.ctrlKey && e.key === 'n') {
-      e.preventDefault();
-      showNewSessionDialog();
-      return;
-    }
-
-    if (e.ctrlKey && e.key >= '1' && e.key <= '8') {
-      e.preventDefault();
-      var idx = parseInt(e.key) - 1;
-      if (idx < sessions.length) {
-        switchToFocus(sessions[idx].id);
-      }
-      return;
-    }
-
     if (e.key === 'Escape') {
       if (!document.getElementById('dialog-overlay').classList.contains('hidden')) {
         hideNewSessionDialog();
-      } else if (mode === 'focus') {
-        switchToGrid();
-      }
-      return;
-    }
-
-    if (mode === 'focus' && e.ctrlKey) {
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        focusNextSession(-1);
-      } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        focusNextSession(1);
       }
     }
   });
