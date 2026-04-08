@@ -122,9 +122,9 @@ function destroyTerminal(id) {
 
 function attachTerminal(id, container) {
   var t = terminals[id];
-  if (!t || t.el === container) return;
+  if (!t) return;
 
-  // Move the persistent wrapper into the new container — never re-call term.open()
+  // Always re-append — the wrapper may have been detached by innerHTML=''
   t.el = container;
   container.appendChild(t.wrapper);
   t.fitAddon.fit();
