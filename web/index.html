@@ -1,4 +1,46 @@
 <!DOCTYPE html>
-<html><head><title>KISS-TMUX</title></head>
-<body><h1>KISS-TMUX</h1><p>Loading...</p></body>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KISS-TMUX</title>
+  <link rel="stylesheet" href="vendor/xterm.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Grid Mode -->
+  <div id="grid-view">
+    <div id="grid-container"></div>
+  </div>
+
+  <!-- Focus Mode -->
+  <div id="focus-view" class="hidden">
+    <div id="sidebar"></div>
+    <div id="focus-terminal"></div>
+  </div>
+
+  <!-- New Session Dialog -->
+  <div id="dialog-overlay" class="hidden">
+    <div id="new-session-dialog">
+      <h3>New Session</h3>
+      <label>Name <input type="text" id="dialog-name" placeholder="optional"></label>
+      <label>Working Directory <input type="text" id="dialog-cwd" placeholder="current directory"></label>
+      <label>Command <input type="text" id="dialog-cmd" value="claude"></label>
+      <div class="dialog-buttons">
+        <button id="dialog-cancel">Cancel</button>
+        <button id="dialog-create">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Context Menu -->
+  <div id="context-menu" class="hidden">
+    <div class="menu-item" data-action="rename">Rename</div>
+    <div class="menu-item" data-action="kill">Kill</div>
+  </div>
+
+  <script src="vendor/xterm.js"></script>
+  <script src="vendor/xterm-addon-fit.js"></script>
+  <script src="app.js"></script>
+</body>
 </html>
