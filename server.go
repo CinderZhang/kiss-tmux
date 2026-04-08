@@ -37,6 +37,16 @@ type Client struct {
 	send chan []byte
 }
 
+// safeSend sends data to the client's send channel without panicking
+// if the channel has been closed by the hub.
+func (c *Client) safeSend(data []byte) {
+	defer func() { recover() }()
+	select {
+	case c.send <- data:
+	default:
+	}
+}
+
 func NewHub() *Hub {
 	return &Hub{
 		broadcast:  make(chan []byte, 256),
@@ -123,19 +133,19 @@ func (c *Client) readPump(hub *Hub, mgr *Manager) {
 			if err != nil {
 				errMsg := ServerMsg{Type: "error", Error: err.Error()}
 				if data, err := json.Marshal(errMsg); err == nil {
-					c.send <- data
+					c.safeSend(data)
 				}
 			} else {
 				spawnedMsg := ServerMsg{Type: "spawned", Session: id}
 				if data, err := json.Marshal(spawnedMsg); err == nil {
-					c.send <- data
+					c.safeSend(data)
 				}
 			}
 		case "input":
 			if err := mgr.Input(msg.Session, msg.Data); err != nil {
 				errMsg := ServerMsg{Type: "error", Session: msg.Session, Error: err.Error()}
 				if data, err := json.Marshal(errMsg); err == nil {
-					c.send <- data
+					c.safeSend(data)
 				}
 			}
 		case "resize":
@@ -147,7 +157,7 @@ func (c *Client) readPump(hub *Hub, mgr *Manager) {
 		case "list":
 			sessMsg := mgr.SessionsMessage()
 			if data, err := json.Marshal(sessMsg); err == nil {
-				c.send <- data
+				c.safeSend(data)
 			}
 		}
 	}
@@ -156,7 +166,7 @@ func (c *Client) readPump(hub *Hub, mgr *Manager) {
 func sendInitialState(client *Client, mgr *Manager) {
 	sessMsg := mgr.SessionsMessage()
 	if data, err := json.Marshal(sessMsg); err == nil {
-		client.send <- data
+		client.safeSend(data)
 	}
 
 	for _, s := range mgr.List() {
@@ -164,7 +174,7 @@ func sendInitialState(client *Client, mgr *Manager) {
 		if len(replay) > 0 {
 			msg := ServerMsg{Type: "output", Session: s.ID, Data: string(replay)}
 			if data, err := json.Marshal(msg); err == nil {
-				client.send <- data
+				client.safeSend(data)
 			}
 		}
 	}
@@ -185,11 +195,11 @@ func SetupHTTP(hub *Hub, mgr *Manager) http.Handler {
 			conn: conn,
 			send: make(chan []byte, 256),
 		}
-		hub.register <- client
+		go client.writePump()
 
+		hub.register <- client
 		sendInitialState(client, mgr)
 
-		go client.writePump()
 		client.readPump(hub, mgr)
 	})
 

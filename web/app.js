@@ -389,13 +389,23 @@ function setupKeyboard() {
 
 // Window Resize
 function handleResize() {
-  Object.keys(terminals).forEach(function(id) {
-    var t = terminals[id];
-    if (t.el) {
+  if (mode === 'focus') {
+    // Only resize the active terminal in focus mode
+    if (activeSession && terminals[activeSession] && terminals[activeSession].el) {
+      var t = terminals[activeSession];
       t.fitAddon.fit();
-      send({ type: 'resize', session: id, cols: t.term.cols, rows: t.term.rows });
+      send({ type: 'resize', session: activeSession, cols: t.term.cols, rows: t.term.rows });
     }
-  });
+  } else {
+    // Resize all visible terminals in grid mode
+    Object.keys(terminals).forEach(function(id) {
+      var t = terminals[id];
+      if (t.el && t.wrapper.parentNode && t.wrapper.offsetParent !== null) {
+        t.fitAddon.fit();
+        send({ type: 'resize', session: id, cols: t.term.cols, rows: t.term.rows });
+      }
+    });
+  }
 }
 
 // Init
