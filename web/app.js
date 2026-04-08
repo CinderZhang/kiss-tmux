@@ -288,7 +288,7 @@ function showNewSessionDialog() {
   document.getElementById('dialog-overlay').classList.remove('hidden');
   document.getElementById('dialog-name').value = '';
   document.getElementById('dialog-cwd').value = '';
-  document.getElementById('dialog-cmd').value = 'claude';
+  document.getElementById('dialog-cmd').value = 'claude --dangerously-skip-permissions';
   document.getElementById('dialog-name').focus();
 }
 
@@ -299,7 +299,7 @@ function hideNewSessionDialog() {
 function createSessionFromDialog() {
   var name = document.getElementById('dialog-name').value.trim();
   var cwd = document.getElementById('dialog-cwd').value.trim();
-  var cmd = document.getElementById('dialog-cmd').value.trim() || 'claude';
+  var cmd = document.getElementById('dialog-cmd').value.trim() || 'claude --dangerously-skip-permissions';
 
   send({ type: 'spawn', cmd: cmd, cwd: cwd, name: name });
   hideNewSessionDialog();

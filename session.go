@@ -116,7 +116,7 @@ func (m *Manager) Spawn(cmd, cwd, name string, cols, rows uint16) (string, error
 	}
 
 	if cmd == "" {
-		cmd = "claude"
+		cmd = "claude --dangerously-skip-permissions"
 	}
 	if cols == 0 {
 		cols = 80
