@@ -1,0 +1,435 @@
+// State
+let ws = null;
+let sessions = [];
+let terminals = {};
+let activeSession = null;
+let mode = 'grid';
+let contextMenuTarget = null;
+
+// WebSocket
+function connect() {
+  var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(proto + '//' + location.host + '/ws');
+
+  ws.onopen = function() {
+    console.log('connected');
+  };
+
+  ws.onclose = function() {
+    console.log('disconnected, reconnecting in 2s...');
+    setTimeout(connect, 2000);
+  };
+
+  ws.onmessage = function(e) {
+    var msg = JSON.parse(e.data);
+    switch (msg.type) {
+      case 'output':   handleOutput(msg); break;
+      case 'exited':   handleExited(msg); break;
+      case 'sessions': handleSessions(msg); break;
+      case 'spawned':  handleSpawned(msg); break;
+      case 'error':    handleError(msg); break;
+    }
+  };
+}
+
+function send(msg) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(msg));
+  }
+}
+
+// Message Handlers
+function handleOutput(msg) {
+  var t = terminals[msg.session];
+  if (t) {
+    t.term.write(msg.data);
+  }
+}
+
+function handleExited(msg) {
+  console.log('session exited:', msg.session, 'code:', msg.code);
+}
+
+function handleSessions(msg) {
+  sessions = msg.sessions || [];
+
+  sessions.forEach(function(s) {
+    if (!terminals[s.id]) {
+      createTerminal(s.id);
+    }
+  });
+
+  var sessionIds = {};
+  sessions.forEach(function(s) { sessionIds[s.id] = true; });
+  Object.keys(terminals).forEach(function(id) {
+    if (!sessionIds[id]) {
+      destroyTerminal(id);
+    }
+  });
+
+  render();
+}
+
+function handleSpawned(msg) {
+  console.log('spawned:', msg.session);
+}
+
+function handleError(msg) {
+  console.error('server error:', msg.error, msg.session || '');
+}
+
+// Terminal Management
+function createTerminal(id) {
+  var term = new Terminal({
+    cursorBlink: true,
+    fontSize: 13,
+    fontFamily: '"Cascadia Code", "Consolas", monospace',
+    theme: {
+      background: '#1a1a2e',
+      foreground: '#e0e0e0',
+      cursor: '#e94560',
+      selectionBackground: '#0f3460'
+    },
+    scrollback: 5000
+  });
+
+  var fitAddon = new FitAddon.FitAddon();
+  term.loadAddon(fitAddon);
+
+  term.onData(function(data) {
+    send({ type: 'input', session: id, data: data });
+  });
+
+  terminals[id] = { term: term, fitAddon: fitAddon, el: null };
+}
+
+function destroyTerminal(id) {
+  var t = terminals[id];
+  if (t) {
+    t.term.dispose();
+    delete terminals[id];
+  }
+}
+
+function attachTerminal(id, container) {
+  var t = terminals[id];
+  if (!t || t.el === container) return;
+
+  if (t.el) {
+    t.el.innerHTML = '';
+  }
+
+  t.el = container;
+  t.term.open(container);
+  t.fitAddon.fit();
+
+  var cols = t.term.cols;
+  var rows = t.term.rows;
+  send({ type: 'resize', session: id, cols: cols, rows: rows });
+}
+
+// Rendering
+function render() {
+  if (mode === 'grid') {
+    renderGrid();
+  } else {
+    renderFocus();
+  }
+}
+
+function renderGrid() {
+  document.getElementById('grid-view').classList.remove('hidden');
+  document.getElementById('focus-view').classList.add('hidden');
+
+  var container = document.getElementById('grid-container');
+  container.innerHTML = '';
+  container.dataset.count = sessions.length + 1;
+
+  sessions.forEach(function(s) {
+    var cell = document.createElement('div');
+    cell.className = 'grid-cell';
+    cell.dataset.session = s.id;
+
+    var header = document.createElement('div');
+    header.className = 'grid-cell-header';
+
+    var dot = document.createElement('div');
+    dot.className = 'dot ' + (s.running ? 'running' : 'stopped');
+    header.appendChild(dot);
+
+    var name = document.createElement('span');
+    name.className = 'name';
+    name.textContent = s.name;
+    name.addEventListener('dblclick', function(e) {
+      e.stopPropagation();
+      startRename(s.id, name);
+    });
+    header.appendChild(name);
+
+    header.addEventListener('contextmenu', function(e) {
+      e.preventDefault();
+      showContextMenu(e, s.id);
+    });
+
+    cell.appendChild(header);
+
+    var termDiv = document.createElement('div');
+    termDiv.className = 'grid-cell-terminal';
+    cell.appendChild(termDiv);
+
+    header.addEventListener('click', function() {
+      switchToFocus(s.id);
+    });
+
+    container.appendChild(cell);
+
+    requestAnimationFrame(function() {
+      attachTerminal(s.id, termDiv);
+    });
+  });
+
+  var newCell = document.createElement('div');
+  newCell.className = 'grid-cell-new';
+  newCell.textContent = '+ New Session';
+  newCell.addEventListener('click', function() {
+    showNewSessionDialog();
+  });
+  container.appendChild(newCell);
+}
+
+function renderFocus() {
+  document.getElementById('grid-view').classList.add('hidden');
+  document.getElementById('focus-view').classList.remove('hidden');
+
+  var sidebar = document.getElementById('sidebar');
+  sidebar.innerHTML = '';
+
+  sessions.forEach(function(s) {
+    var tab = document.createElement('button');
+    tab.className = 'sidebar-tab' + (s.id === activeSession ? ' active' : '');
+
+    var abbr = s.name.substring(0, 2).toUpperCase();
+    tab.textContent = abbr;
+    tab.title = s.name;
+
+    var tabDot = document.createElement('div');
+    tabDot.className = 'tab-dot ' + (s.running ? 'running' : 'stopped');
+    tab.appendChild(tabDot);
+
+    tab.addEventListener('click', function() {
+      switchToFocus(s.id);
+    });
+
+    tab.addEventListener('contextmenu', function(e) {
+      e.preventDefault();
+      showContextMenu(e, s.id);
+    });
+
+    sidebar.appendChild(tab);
+  });
+
+  var focusDiv = document.getElementById('focus-terminal');
+  focusDiv.innerHTML = '';
+
+  if (activeSession && terminals[activeSession]) {
+    attachTerminal(activeSession, focusDiv);
+    terminals[activeSession].term.focus();
+  }
+}
+
+// Mode Switching
+function switchToFocus(sessionId) {
+  activeSession = sessionId;
+  mode = 'focus';
+  render();
+}
+
+function switchToGrid() {
+  mode = 'grid';
+  render();
+}
+
+function toggleMode() {
+  if (mode === 'grid') {
+    if (sessions.length > 0) {
+      switchToFocus(activeSession || sessions[0].id);
+    }
+  } else {
+    switchToGrid();
+  }
+}
+
+function focusNextSession(direction) {
+  if (sessions.length === 0) return;
+  var idx = sessions.findIndex(function(s) { return s.id === activeSession; });
+  if (idx === -1) idx = 0;
+  idx = (idx + direction + sessions.length) % sessions.length;
+  switchToFocus(sessions[idx].id);
+}
+
+// New Session Dialog
+function showNewSessionDialog() {
+  document.getElementById('dialog-overlay').classList.remove('hidden');
+  document.getElementById('dialog-name').value = '';
+  document.getElementById('dialog-cwd').value = '';
+  document.getElementById('dialog-cmd').value = 'claude';
+  document.getElementById('dialog-name').focus();
+}
+
+function hideNewSessionDialog() {
+  document.getElementById('dialog-overlay').classList.add('hidden');
+}
+
+function createSessionFromDialog() {
+  var name = document.getElementById('dialog-name').value.trim();
+  var cwd = document.getElementById('dialog-cwd').value.trim();
+  var cmd = document.getElementById('dialog-cmd').value.trim() || 'claude';
+
+  send({ type: 'spawn', cmd: cmd, cwd: cwd, name: name });
+  hideNewSessionDialog();
+}
+
+// Context Menu
+function showContextMenu(e, sessionId) {
+  contextMenuTarget = sessionId;
+  var menu = document.getElementById('context-menu');
+  menu.classList.remove('hidden');
+  menu.style.left = e.clientX + 'px';
+  menu.style.top = e.clientY + 'px';
+}
+
+function hideContextMenu() {
+  document.getElementById('context-menu').classList.add('hidden');
+  contextMenuTarget = null;
+}
+
+// Rename
+function startRename(sessionId, nameEl) {
+  var session = sessions.find(function(s) { return s.id === sessionId; });
+  if (!session) return;
+
+  var input = document.createElement('input');
+  input.type = 'text';
+  input.value = session.name;
+  input.style.cssText = 'background:var(--bg);border:1px solid var(--accent);color:var(--text);font-size:12px;padding:0 4px;width:100%;border-radius:2px;';
+
+  nameEl.textContent = '';
+  nameEl.appendChild(input);
+  input.focus();
+  input.select();
+
+  function finish() {
+    var newName = input.value.trim();
+    if (newName && newName !== session.name) {
+      send({ type: 'rename', session: sessionId, name: newName });
+    }
+    nameEl.textContent = newName || session.name;
+  }
+
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { finish(); }
+    if (e.key === 'Escape') { nameEl.textContent = session.name; }
+    e.stopPropagation();
+  });
+  input.addEventListener('blur', finish);
+}
+
+// Keyboard Shortcuts
+function setupKeyboard() {
+  document.addEventListener('keydown', function(e) {
+    if (e.target.tagName === 'INPUT') return;
+
+    if (e.ctrlKey && e.key === 'g') {
+      e.preventDefault();
+      toggleMode();
+      return;
+    }
+
+    if (e.ctrlKey && e.key === 'n') {
+      e.preventDefault();
+      showNewSessionDialog();
+      return;
+    }
+
+    if (e.ctrlKey && e.key >= '1' && e.key <= '8') {
+      e.preventDefault();
+      var idx = parseInt(e.key) - 1;
+      if (idx < sessions.length) {
+        switchToFocus(sessions[idx].id);
+      }
+      return;
+    }
+
+    if (e.key === 'Escape') {
+      if (!document.getElementById('dialog-overlay').classList.contains('hidden')) {
+        hideNewSessionDialog();
+      } else if (mode === 'focus') {
+        switchToGrid();
+      }
+      return;
+    }
+
+    if (mode === 'focus' && e.ctrlKey) {
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        focusNextSession(-1);
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        focusNextSession(1);
+      }
+    }
+  });
+}
+
+// Window Resize
+function handleResize() {
+  Object.keys(terminals).forEach(function(id) {
+    var t = terminals[id];
+    if (t.el) {
+      t.fitAddon.fit();
+      send({ type: 'resize', session: id, cols: t.term.cols, rows: t.term.rows });
+    }
+  });
+}
+
+// Init
+function init() {
+  document.getElementById('dialog-create').addEventListener('click', createSessionFromDialog);
+  document.getElementById('dialog-cancel').addEventListener('click', hideNewSessionDialog);
+  document.getElementById('dialog-overlay').addEventListener('click', function(e) {
+    if (e.target === this) hideNewSessionDialog();
+  });
+
+  document.getElementById('new-session-dialog').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      createSessionFromDialog();
+    }
+  });
+
+  document.querySelectorAll('#context-menu .menu-item').forEach(function(item) {
+    item.addEventListener('click', function() {
+      var action = this.dataset.action;
+      if (action === 'kill' && contextMenuTarget) {
+        send({ type: 'kill', session: contextMenuTarget });
+      }
+      if (action === 'rename' && contextMenuTarget) {
+        var nameEl = document.querySelector('[data-session="' + contextMenuTarget + '"] .name');
+        if (nameEl) {
+          startRename(contextMenuTarget, nameEl);
+        }
+      }
+      hideContextMenu();
+    });
+  });
+
+  document.addEventListener('click', hideContextMenu);
+
+  window.addEventListener('resize', handleResize);
+
+  setupKeyboard();
+
+  connect();
+}
+
+window.addEventListener('DOMContentLoaded', init);
