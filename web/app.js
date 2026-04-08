@@ -225,7 +225,7 @@ function renderFocus() {
     var tab = document.createElement('button');
     tab.className = 'sidebar-tab' + (s.id === activeSession ? ' active' : '');
 
-    var abbr = s.name.substring(0, 4).toUpperCase();
+    var abbr = s.name.substring(0, 6).toUpperCase();
     tab.textContent = abbr;
     tab.title = s.name;
     tab.dataset.name = s.name;

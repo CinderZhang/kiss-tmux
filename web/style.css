@@ -111,7 +111,7 @@ body {
 }
 
 #sidebar {
-  width: 60px;
+  width: 72px;
   background: var(--surface);
   border-right: 1px solid var(--border);
   display: flex;
@@ -121,7 +121,7 @@ body {
 }
 
 .sidebar-tab {
-  width: 52px;
+  width: 64px;
   height: 36px;
   margin: 2px auto;
   border-radius: 4px;
