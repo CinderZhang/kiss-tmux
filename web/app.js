@@ -100,13 +100,22 @@ function createTerminal(id) {
     send({ type: 'input', session: id, data: data });
   });
 
-  terminals[id] = { term: term, fitAddon: fitAddon, el: null };
+  // Open terminal into a persistent wrapper div ONCE — xterm.js
+  // term.open() must only be called once per Terminal instance.
+  var wrapper = document.createElement('div');
+  wrapper.style.height = '100%';
+  term.open(wrapper);
+
+  terminals[id] = { term: term, fitAddon: fitAddon, el: null, wrapper: wrapper };
 }
 
 function destroyTerminal(id) {
   var t = terminals[id];
   if (t) {
     t.term.dispose();
+    if (t.wrapper.parentNode) {
+      t.wrapper.parentNode.removeChild(t.wrapper);
+    }
     delete terminals[id];
   }
 }
@@ -115,12 +124,9 @@ function attachTerminal(id, container) {
   var t = terminals[id];
   if (!t || t.el === container) return;
 
-  if (t.el) {
-    t.el.innerHTML = '';
-  }
-
+  // Move the persistent wrapper into the new container — never re-call term.open()
   t.el = container;
-  t.term.open(container);
+  container.appendChild(t.wrapper);
   t.fitAddon.fit();
 
   var cols = t.term.cols;
