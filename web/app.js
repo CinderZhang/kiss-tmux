@@ -361,6 +361,60 @@ function setupKeyboard() {
   });
 }
 
+// Copy/paste support for xterm.js terminals
+function activeTerminal() {
+  if (activeSession && terminals[activeSession]) return terminals[activeSession].term;
+  if (sessions.length > 0 && terminals[sessions[0].id]) return terminals[sessions[0].id].term;
+  return null;
+}
+
+function setupClipboard() {
+  // Paste: Ctrl+V, Ctrl+Shift+V, or right-click paste delivers clipboard
+  // to the active terminal via term.paste() (handles bracketed paste mode).
+  document.addEventListener('paste', function(e) {
+    // Don't intercept paste into dialog inputs
+    if (e.target.tagName === 'INPUT') return;
+
+    var term = activeTerminal();
+    if (!term) return;
+
+    var text = (e.clipboardData || window.clipboardData).getData('text');
+    if (text) {
+      e.preventDefault();
+      term.paste(text);
+    }
+  });
+
+  // Copy event: right-click → copy menu, or Ctrl+C when DOM has selection.
+  document.addEventListener('copy', function(e) {
+    if (e.target.tagName === 'INPUT') return;
+
+    var term = activeTerminal();
+    if (!term || !term.hasSelection()) return;
+
+    e.clipboardData.setData('text/plain', term.getSelection());
+    e.preventDefault();
+  });
+
+  // Ctrl+Shift+C: explicit copy of terminal selection (since Ctrl+C sends SIGINT)
+  document.addEventListener('keydown', function(e) {
+    if (e.target.tagName === 'INPUT') return;
+
+    if (e.ctrlKey && e.shiftKey && (e.key === 'C' || e.key === 'c')) {
+      var term = activeTerminal();
+      if (!term || !term.hasSelection()) return;
+
+      e.preventDefault();
+      var text = term.getSelection();
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).catch(function(err) {
+          console.error('clipboard write failed:', err);
+        });
+      }
+    }
+  });
+}
+
 // Window Resize
 function handleResize() {
   if (mode === 'focus') {
@@ -418,6 +472,7 @@ function init() {
   window.addEventListener('resize', handleResize);
 
   setupKeyboard();
+  setupClipboard();
 
   connect();
 }
