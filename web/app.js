@@ -83,14 +83,20 @@ function createTerminal(id) {
   var term = new Terminal({
     cursorBlink: true,
     fontSize: 13,
-    fontFamily: '"Cascadia Code", "Consolas", monospace',
+    fontFamily: '"Cascadia Code", "Consolas", "Courier New", monospace',
+    lineHeight: 1.2,
+    letterSpacing: 0,
     theme: {
       background: '#1a1a2e',
       foreground: '#e0e0e0',
       cursor: '#e94560',
       selectionBackground: '#0f3460'
     },
-    scrollback: 5000
+    scrollback: 10000,
+    allowTransparency: false,
+    macOptionIsMeta: true,
+    rightClickSelectsWord: false,
+    windowsMode: true
   });
 
   var fitAddon = new FitAddon.FitAddon();
@@ -105,6 +111,22 @@ function createTerminal(id) {
   var wrapper = document.createElement('div');
   wrapper.style.height = '100%';
   term.open(wrapper);
+
+  // Load WebGL renderer for smooth scrolling and crisp text.
+  // Falls back to default canvas/DOM renderer if WebGL is unavailable
+  // (e.g., headless Chrome, software rendering, GPU context loss).
+  try {
+    if (window.WebglAddon && window.WebglAddon.WebglAddon) {
+      var webgl = new WebglAddon.WebglAddon();
+      webgl.onContextLoss(function() {
+        console.warn('WebGL context lost for session', id, '— disposing addon');
+        webgl.dispose();
+      });
+      term.loadAddon(webgl);
+    }
+  } catch (e) {
+    console.warn('WebGL renderer failed, using default:', e);
+  }
 
   terminals[id] = { term: term, fitAddon: fitAddon, el: null, wrapper: wrapper };
 }
