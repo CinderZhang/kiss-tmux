@@ -45,14 +45,27 @@ kiss-tmux [flags]
 ## Features
 
 - **Grid mode** — auto-arranging CSS grid, up to 8 concurrent sessions
-- **Focus mode** — thin sidebar with session abbreviations + full-size terminal
+- **Focus mode** — thin sidebar with 6-char session abbreviations + full-size terminal
+- **WebGL rendering** — GPU-accelerated text rendering via `xterm-addon-webgl`, matching VSCode's terminal smoothness
 - **Sidebar buttons** — grid toggle (☰), new session (+), one tab per session
 - **Hover tooltips** — full session names on hover
+- **Copy/paste** — `Ctrl+V` / `Ctrl+Shift+V` / right-click paste; `Ctrl+Shift+C` copy
 - **Context menu** — right-click a session header to rename or kill
 - **Inline rename** — double-click a session name in the grid
 - **Live reconnect** — refresh the browser and sessions replay from a 64KB ring buffer
 - **Multiple browser tabs** — all tabs stay in sync via WebSocket broadcast
 - **Default command** — `claude --dangerously-skip-permissions` (customizable per-session)
+
+### Keyboard shortcuts
+
+| Keys | Action |
+|------|--------|
+| `Ctrl+V` / `Ctrl+Shift+V` | Paste clipboard into active terminal |
+| `Ctrl+Shift+C` | Copy selection from active terminal |
+| `Ctrl+C` | Send SIGINT to the running process (standard terminal) |
+| `Escape` | Close the new-session dialog |
+
+All other navigation uses buttons so that terminal programs keep their keyboard input. Click session tabs to switch sessions. Click ☰ to return to grid view. Click + to open the new-session dialog.
 
 ## Requirements
 
@@ -99,7 +112,7 @@ Child Process (claude, cmd.exe, ...)
 - [`github.com/UserExistsError/conpty`](https://github.com/UserExistsError/conpty) — Windows ConPTY wrapper
 - [`github.com/gorilla/websocket`](https://github.com/gorilla/websocket) — WebSocket server
 
-That's it. Two Go dependencies. Frontend uses vanilla JS with [xterm.js](https://xtermjs.org/) vendored from jsDelivr.
+That's it. Two Go dependencies. Frontend uses vanilla JS with [xterm.js](https://xtermjs.org/) + `xterm-addon-fit` + `xterm-addon-webgl` vendored from jsDelivr.
 
 ## Build from source
 
@@ -133,10 +146,16 @@ go test -v
 - Task management, kanban, or agent-specific parsing
 - React, build toolchains, or npm
 
+## Releases and changelog
+
+- **Latest release:** https://github.com/CinderZhang/kiss-tmux/releases/latest
+- **Changelog:** [`CHANGELOG.md`](./CHANGELOG.md)
+- **Development history:** [`docs/development-history.md`](./docs/development-history.md) — how the project was designed, built, and iterated on
+
 ## License
 
 MIT
 
 ## Acknowledgements
 
-Built with [Claude Code](https://claude.com/claude-code). See `docs/design.md` and `docs/superpowers/plans/` for the full design spec and implementation plan.
+Built with [Claude Code](https://claude.com/claude-code). The design spec ([`docs/design.md`](./docs/design.md)) and the full implementation plan ([`docs/superpowers/plans/2026-04-08-kiss-tmux.md`](./docs/superpowers/plans/2026-04-08-kiss-tmux.md)) are both in the repo. See [`docs/development-history.md`](./docs/development-history.md) for the full story including the bugs found and the lessons learned.
