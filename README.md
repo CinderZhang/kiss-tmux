@@ -14,13 +14,24 @@ When working with multiple long-running agents (like several Claude Code session
 
 ## Quick Start
 
-1. Download `kiss-tmux-windows-amd64.exe` from the [latest release](https://github.com/CinderZhang/kiss-tmux/releases/latest)
-2. Run it:
-   ```
-   kiss-tmux-windows-amd64.exe
-   ```
-3. Your browser opens to `http://127.0.0.1:7777`
-4. Click `+ New Session` to spawn a terminal
+Pick whichever is most convenient:
+
+### Option A — Download the exe (no Go needed)
+
+1. Grab `kiss-tmux-windows-amd64.exe` from the [latest release](https://github.com/CinderZhang/kiss-tmux/releases/latest)
+2. Double-click it (or run it from a terminal)
+
+### Option B — `go install` (if you have Go 1.21+)
+
+```bash
+go install github.com/CinderZhang/kiss-tmux@latest
+```
+
+This builds and installs `kiss-tmux.exe` to `$GOPATH/bin` (or `$HOME/go/bin`). Then just run `kiss-tmux` from anywhere.
+
+### Then
+
+Your browser opens to `http://127.0.0.1:7777`. Click `+ New Session` to spawn a terminal.
 
 ### CLI flags
 
