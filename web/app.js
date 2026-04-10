@@ -217,7 +217,7 @@ function renderGrid() {
     });
   });
 
-  var newCell = document.createElement('div');
+  var newCell = document.createElement('button');
   newCell.className = 'grid-cell-new';
   newCell.textContent = '+ New Session';
   newCell.addEventListener('click', function() {
