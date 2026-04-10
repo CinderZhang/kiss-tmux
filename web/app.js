@@ -150,6 +150,7 @@ function attachTerminal(id, container) {
   t.el = container;
   container.appendChild(t.wrapper);
   t.fitAddon.fit();
+  t.term.scrollToBottom();
 
   var cols = t.term.cols;
   var rows = t.term.rows;
