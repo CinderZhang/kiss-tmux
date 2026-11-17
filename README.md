@@ -136,7 +136,7 @@ All web assets are embedded via `go:embed` — the binary is fully self-containe
 go test -v
 ```
 
-18 tests covering the protocol (JSON roundtrip), ring buffer (circular overflow), and session manager (ConPTY lifecycle with real `cmd.exe` spawns).
+21 tests covering the protocol (JSON roundtrip), ring buffer (circular overflow), and session manager (ConPTY lifecycle with real `cmd.exe` spawns).
 
 ## Non-goals
 

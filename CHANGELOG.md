@@ -2,6 +2,13 @@
 
 All notable changes to KISS-TMUX are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.4.1] — 2026-11-17
+
+### Fixed
+- **New Session failed silently when `claude` is installed via npm.** The command resolves to `claude.cmd`, and ConPTY can only launch real executables, so every spawn returned "The system cannot find the file specified." Commands that resolve to a `.cmd` or `.bat` file now run through `cmd.exe`.
+
+[Full diff](https://github.com/CinderZhang/kiss-tmux/compare/v0.4.0...v0.4.1)
+
 ## [v0.3.0] — 2026-04-09
 
 ### Added
