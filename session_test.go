@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -178,5 +180,50 @@ func TestManagerMaxSessions(t *testing.T) {
 	_, err = mgr.Spawn("cmd.exe", "", "s3", 80, 24)
 	if err == nil {
 		t.Error("expected error when exceeding max sessions")
+	}
+}
+
+// writeShim creates a .cmd shim (like npm's claude.cmd) in a temp dir
+// and puts that dir on PATH for the duration of the test.
+func writeShim(t *testing.T, name string) {
+	t.Helper()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, name+".cmd"), []byte("@echo off\r\necho shim-ok\r\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+}
+
+func TestResolveCommandWrapsCmdShim(t *testing.T) {
+	writeShim(t, "kisstmuxshim")
+
+	got := resolveCommand("kisstmuxshim --flag value")
+	want := `cmd.exe /s /c "kisstmuxshim --flag value"`
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestResolveCommandLeavesExeAlone(t *testing.T) {
+	for _, cmd := range []string{"cmd.exe", "cmd.exe /c echo hi", "no-such-program-xyz --flag"} {
+		if got := resolveCommand(cmd); got != cmd {
+			t.Errorf("resolveCommand(%q) = %q, want unchanged", cmd, got)
+		}
+	}
+}
+
+func TestManagerSpawnCmdShim(t *testing.T) {
+	writeShim(t, "kisstmuxshim")
+	mgr := NewManager(8, func(data []byte) {})
+
+	id, err := mgr.Spawn("kisstmuxshim --flag", "", "", 80, 24)
+	if err != nil {
+		t.Fatalf("spawning a .cmd shim failed: %v", err)
+	}
+	defer mgr.Kill(id)
+
+	sessions := mgr.List()
+	if sessions[0].Cmd != "kisstmuxshim --flag" {
+		t.Errorf("cmd = %q, want the command as typed", sessions[0].Cmd)
 	}
 }

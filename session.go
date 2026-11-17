@@ -5,6 +5,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -132,7 +135,7 @@ func (m *Manager) Spawn(cmd, cwd, name string, cols, rows uint16) (string, error
 		opts = append(opts, conpty.ConPtyWorkDir(cwd))
 	}
 
-	cpty, err := conpty.Start(cmd, opts...)
+	cpty, err := conpty.Start(resolveCommand(cmd), opts...)
 	if err != nil {
 		return "", err
 	}
@@ -311,4 +314,30 @@ func (m *Manager) broadcastSessions() {
 	if encoded, err := json.Marshal(msg); err == nil {
 		m.broadcast(encoded)
 	}
+}
+
+// resolveCommand returns the command line to hand to ConPTY.
+//
+// ConPTY launches via CreateProcess, which only runs real executables. Batch
+// shims such as npm's claude.cmd must go through cmd.exe, so when the program
+// resolves to a .cmd or .bat file the command is wrapped in "cmd.exe /s /c".
+func resolveCommand(cmd string) string {
+	prog := strings.TrimSpace(cmd)
+	if strings.HasPrefix(prog, `"`) {
+		if end := strings.Index(prog[1:], `"`); end >= 0 {
+			prog = prog[1 : end+1]
+		}
+	} else if end := strings.IndexAny(prog, " \t"); end >= 0 {
+		prog = prog[:end]
+	}
+
+	path, err := exec.LookPath(prog)
+	if err != nil {
+		return cmd
+	}
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".cmd", ".bat":
+		return `cmd.exe /s /c "` + cmd + `"`
+	}
+	return cmd
 }
